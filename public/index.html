@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gizli Chat V1</title>
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Courier New', Courier, monospace; background: #0a0a0a; color: #00ff41; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
+        
+        /* GİRİŞ EKRANI */
+        #login-screen { text-align: center; border: 1px solid #00ff41; padding: 40px; border-radius: 10px; background: #000; box-shadow: 0 0 20px rgba(0, 255, 65, 0.2); }
+        input { background: #000; border: 1px solid #00ff41; color: #00ff41; padding: 10px; margin: 10px; text-align: center; outline: none; }
+        button { background: #00ff41; color: #000; border: none; padding: 10px 20px; font-weight: bold; cursor: pointer; transition: 0.3s; }
+        button:hover { background: #008f11; }
+
+        /* CHAT EKRANI */
+        #chat-screen { display: none; width: 95%; max-width: 500px; height: 90vh; flex-direction: column; border: 1px solid #00ff41; padding: 15px; background: #000; }
+        #messages { flex: 1; overflow-y: auto; border-bottom: 1px solid #333; margin-bottom: 10px; padding: 5px; }
+        
+        /* GİZLİ MESAJ STİLİ (Hover/Dokunma Efekti) */
+        .msg-container { margin-bottom: 12px; padding: 8px; border-radius: 4px; background: #111; cursor: pointer; word-wrap: break-word; transition: 0.2s; border-left: 3px solid #00ff41; }
+        .msg-text { filter: blur(5px); opacity: 0.4; transition: 0.2s; font-size: 0.9em; }
+        .msg-container:hover .msg-text, .msg-container:active .msg-text { filter: blur(0); opacity: 1; background: #002200; }
+    </style>
+</head>
+<body>
+
+    <!-- Giriş Ekranı -->
+    <div id="login-screen">
+        <h1>GİZLİ SİSTEM</h1>
+        <p>Giriş için 5 Haneli Kod</p>
+        <input type="text" id="roomCode" maxlength="5" placeholder="00000">
+        <br>
+        <button onclick="joinRoom()">BAĞLAN</button>
+    </div>
+
+    <!-- Chat Ekranı -->
+    <div id="chat-screen">
+        <div style="padding-bottom: 10px; border-bottom: 1px solid #333; margin-bottom: 10px;">
+            SİSTEM DURUMU: <span style="color: white;">AKTİF</span> | ODA: <b id="currentRoom"></b>
+        </div>
+        
+        <div id="messages"></div>
+
+        <div style="display: flex; gap: 5px;">
+            <input type="text" id="messageInput" style="flex: 1; margin: 0;" placeholder="Şifreli mesaj gönder...">
+            <button onclick="send()">GÖNDER</button>
+        </div>
+    </div>
+
+    <script>
+        const socket = io();
+        let activeRoom = "";
+
+        // Odaya Katılma
+        function joinRoom() {
+            const code = document.getElementById('roomCode').value;
+            if (code.length === 5) {
+                activeRoom = code;
+                document.getElementById('login-screen').style.display = 'none';
+                document.getElementById('chat-screen').style.display = 'flex';
+                document.getElementById('currentRoom').innerText = activeRoom;
+                socket.emit('joinRoom', activeRoom);
+            } else {
+                alert("Hata: Geçersiz kod formatı!");
+            }
+        }
+
+        // Mesaj Gönderme (Şifreleyerek)
+        function send() {
+            const input = document.getElementById('messageInput');
+            const plainText = input.value;
+            if (!plainText) return;
+
+            // AES-256 Şifreleme (Anahtar: 5 haneli oda kodu)
+            const encrypted = CryptoJS.AES.encrypt(plainText, activeRoom).toString();
+            
+            socket.emit('sendMessage', { room: activeRoom, message: encrypted });
+            input.value = '';
+        }
+
+        // Mesaj Alma ve Çözme
+        socket.on('receiveMessage', (encryptedMsg) => {
+            const messagesDiv = document.getElementById('messages');
+            
+            const container = document.createElement('div');
+            container.className = 'msg-container';
+            
+            const textSpan = document.createElement('div');
+            textSpan.className = 'msg-text';
+            textSpan.textContent = encryptedMsg; // Ekranda şifreli hali durur
+
+            // Hover/Basılı tutma ile çözme
+            container.onmouseover = container.ontouchstart = function() {
+                try {
+                    const bytes = CryptoJS.AES.decrypt(encryptedMsg, activeRoom);
+                    const original = bytes.toString(CryptoJS.enc.Utf8);
+                    if (original) textSpan.textContent = ">>> " + original;
+                } catch(e) {
+                    textSpan.textContent = "!!! Çözme Hatası !!!";
+                }
+            };
+
+            // Fare çekilince maskele
+            container.onmouseout = container.ontouchend = function() {
+                textSpan.textContent = encryptedMsg;
+            };
+
+            container.appendChild(textSpan);
+            messagesDiv.appendChild(container);
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        });
+
+        // Enter tuşu desteği
+        document.getElementById('messageInput').addEventListener("keypress", (e) => {
+            if (e.key === "Enter") send();
+        });
+    </script>
+</body>
+</html>
