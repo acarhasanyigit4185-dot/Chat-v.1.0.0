@@ -17,10 +17,10 @@
         input { background: #000; border: 1px solid #00ff41; color: #00ff41; padding: 8px; margin: 4px 0; text-align: center; width: 100%; outline: none; }
         button { background: #00ff41; color: #000; border: none; padding: 10px; font-weight: bold; cursor: pointer; margin-top: 8px; width: 100%; }
         
-        /* ANA PANEL - Flex yapısı düzeltildi */
+        /* ANA PANEL */
         #chat-screen { display: none; width: 100%; height: 100%; background: #000; position: fixed; inset: 0; flex-direction: column; }
         
-        /* ÜST BAR - Sabitlendi */
+        /* ÜST BAR VE MENÜ BUTONU DÜZELTMESİ */
         #header-bar { 
             height: 45px; background: #000; border-bottom: 1px solid #333; 
             display: flex; align-items: center; padding: 0 10px; flex-shrink: 0;
@@ -28,6 +28,13 @@
         #menu-toggle { 
             background: #111; color: #00ff41; border: 1px solid #00ff41; 
             width: 35px; height: 30px; margin-right: 10px; cursor: pointer;
+            /* BURASI DÜZELTİLDİ: SİMGEYİ TAM ORTALAR */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            line-height: 0;
+            padding-bottom: 2px; /* Bazı cihazlarda simgeyi tam dengelemek için */
         }
 
         /* YAN MENÜ */
@@ -40,7 +47,7 @@
         #user-list { margin-top: 15px; font-size: 0.75em; }
         .user-item { margin-bottom: 5px; padding: 3px; border-bottom: 1px solid #111; }
 
-        /* SOHBET ALANI - Flex-grow ile orta kısmı yayıyoruz */
+        /* SOHBET ALANI */
         #main-chat { flex: 1; display: flex; flex-direction: column; overflow: hidden; position: relative; }
         #messages { flex: 1; overflow-y: auto; padding: 10px; width: 100%; }
         
@@ -49,7 +56,7 @@
         .msg-text { font-size: 0.8em; opacity: 0.8; word-break: break-all; }
         .msg-container:hover { background: #001a00; }
 
-        /* ALT GİRİŞ ALANI - Sabitlendi ve Görünür Yapıldı */
+        /* ALT GİRİŞ ALANI */
         #input-area { 
             height: 55px; display: flex; gap: 5px; padding: 8px; 
             border-top: 1px solid #333; background: #000; flex-shrink: 0;
@@ -93,7 +100,7 @@
     <div id="chat-screen">
         <div id="header-bar">
             <button id="menu-toggle" onclick="toggleSidebar()">☰</button>
-            <div style="font-size: 0.7em; flex: 1; display: flex; justify-content: space-between;">
+            <div style="font-size: 0.7em; flex: 1; display: flex; justify-content: space-between; align-items: center;">
                 <span>ODA MEVCUDU: <b id="roomCount">0</b></span>
                 <span>ODA: <b id="currentRoom"></b></span>
             </div>
@@ -137,7 +144,7 @@
             activeRoom = data.room;
             document.getElementById('waiting-overlay').style.display = 'none';
             document.getElementById('login-screen').style.display = 'none';
-            document.getElementById('chat-screen').style.display = 'flex'; // Flex olarak aç
+            document.getElementById('chat-screen').style.display = 'flex'; 
             document.getElementById('currentRoom').innerText = activeRoom;
         });
 
