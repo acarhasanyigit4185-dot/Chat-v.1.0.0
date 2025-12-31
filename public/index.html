@@ -7,66 +7,64 @@
     <script src="/socket.io/socket.io.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
     <style>
-        /* TEMEL AYARLAR */
+        /* TEMA YÖNETİMİ (CSS Değişkenleri) */
+        :root {
+            --main-color: #00d4ff; /* Varsayılan Mavi */
+            --bg-color: #0a0a0a;
+            --sidebar-bg: #050505;
+            --msg-bg: #111;
+        }
+
+        /* TEMA SEÇENEKLERİ */
+        .theme-green { --main-color: #00ff41; }
+        .theme-white { --main-color: #ffffff; }
+        .theme-red   { --main-color: #ff3e3e; }
+        .theme-gold  { --main-color: #ffd700; }
+
         * { box-sizing: border-box; margin: 0; padding: 0; font-size: 14px; }
-        html, body { height: 100%; width: 100%; overflow: hidden; }
-        body { font-family: 'Courier New', Courier, monospace; background: #0a0a0a; color: #00d4ff; display: flex; justify-content: center; align-items: center; }
+        html, body { height: 100%; width: 100%; overflow: hidden; background: var(--bg-color); color: var(--main-color); }
+        body { font-family: 'Courier New', Courier, monospace; display: flex; justify-content: center; align-items: center; }
         
-        /* GİRİŞ EKRANI */
-        #login-screen { text-align: center; border: 1px solid #00d4ff; padding: 25px 15px; border-radius: 8px; background: #000; width: 85%; max-width: 320px; z-index: 500; position: relative; }
-        input { background: #000; border: 1px solid #00d4ff; color: #00d4ff; padding: 8px; margin: 4px 0; text-align: center; width: 100%; outline: none; }
-        button { background: #00d4ff; color: #000; border: none; padding: 10px; font-weight: bold; cursor: pointer; margin-top: 8px; width: 100%; }
+        #login-screen { text-align: center; border: 1px solid var(--main-color); padding: 25px 15px; border-radius: 8px; background: #000; width: 85%; max-width: 320px; z-index: 500; position: relative; }
+        input { background: #000; border: 1px solid var(--main-color); color: var(--main-color); padding: 8px; margin: 4px 0; text-align: center; width: 100%; outline: none; }
+        button { background: var(--main-color); color: #000; border: none; padding: 10px; font-weight: bold; cursor: pointer; margin-top: 8px; width: 100%; }
         
-        /* ANA PANEL */
         #chat-screen { display: none; width: 100%; height: 100%; background: #000; position: fixed; inset: 0; flex-direction: column; z-index: 100; }
         
-        /* ÜST BAR */
         #header-bar { height: 45px; background: #000; border-bottom: 1px solid #333; display: flex; align-items: center; padding: 0 10px; flex-shrink: 0; }
         #menu-toggle { 
-            background: #111; color: #00d4ff; border: 1px solid #00d4ff; 
+            background: #111; color: var(--main-color); border: 1px solid var(--main-color); 
             width: 35px; height: 30px; margin-right: 10px; cursor: pointer;
             display: flex; align-items: center; justify-content: center; font-size: 18px;
         }
 
-        /* YAN MENÜ */
-        #sidebar { position: absolute; left: -180px; top: 0; width: 180px; height: 100%; border-right: 1px solid #333; padding: 15px; background: #050505; z-index: 150; transition: 0.3s; }
+        #sidebar { position: absolute; left: -180px; top: 0; width: 180px; height: 100%; border-right: 1px solid #333; padding: 15px; background: var(--sidebar-bg); z-index: 150; transition: 0.3s; display: flex; flex-direction: column; }
         #sidebar.active { left: 0; }
-        #user-list { margin-top: 15px; font-size: 0.75em; }
+        #user-list { margin-top: 10px; font-size: 0.75em; flex: 1; overflow-y: auto; }
         .user-item { margin-bottom: 5px; padding: 3px; border-bottom: 1px solid #111; }
         .owner-tag { color: #fff; font-weight: bold; font-size: 0.8em; margin-left: 5px; }
 
-        /* SOHBET ALANI */
+        /* AYARLAR BÖLÜMÜ */
+        .sidebar-label { font-size: 0.7em; color: gray; margin-top: 15px; border-bottom: 1px solid #222; padding-bottom: 3px; }
+        .theme-select { background: #000; color: var(--main-color); border: 1px solid var(--main-color); width: 100%; padding: 5px; margin-top: 5px; font-size: 10px; outline: none; }
+
         #main-chat { flex: 1; display: flex; flex-direction: column; overflow: hidden; position: relative; }
         #messages { flex: 1; overflow-y: auto; padding: 10px; width: 100%; }
         
-        /* MESAJ TASARIMI */
-        .msg-container { margin-bottom: 10px; padding: 8px; border-radius: 3px; background: #111; border-left: 2px solid #00d4ff; cursor: help; width: 100%; }
+        .msg-container { margin-bottom: 10px; padding: 8px; border-radius: 3px; background: var(--msg-bg); border-left: 2px solid var(--main-color); cursor: help; width: 100%; }
+        .msg-prefix { color: #fff; font-weight: bold; font-size: 0.8em; } /* Saat ve isim kısmı şifresiz */
         .msg-text { font-size: 0.8em; opacity: 0.8; word-break: break-all; }
-        .msg-container:hover { background: #001a2e; }
+        .msg-container:hover { background: rgba(255,255,255,0.05); }
 
-        /* ALT GİRİŞ */
         #input-area { height: 55px; display: flex; gap: 5px; padding: 8px; border-top: 1px solid #333; background: #000; flex-shrink: 0; }
         #messageInput { text-align: left; padding: 8px; margin: 0; }
 
-        /* ONAY MODALI */
-        #approval-modal { display: none; position: fixed; top: 60px; left: 50%; transform: translateX(-50%); background: #000; border: 2px solid #00d4ff; padding: 15px; z-index: 550; text-align: center; width: 85%; max-width: 280px; }
-        
-        /* BEKLEME EKRANI (DÜZELTİLDİ: Z-INDEX 600 YAPILDI) */
-        #waiting-overlay { 
-            display: none; 
-            position: fixed; 
-            inset: 0; 
-            background: rgba(0,0,0,0.95); 
-            z-index: 600; /* En üst katmana alındı */
-            justify-content: center; 
-            align-items: center; 
-            text-align: center; 
-        }
+        #approval-modal { display: none; position: fixed; top: 60px; left: 50%; transform: translateX(-50%); background: #000; border: 2px solid var(--main-color); padding: 15px; z-index: 550; text-align: center; width: 85%; max-width: 280px; }
+        #waiting-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.95); z-index: 600; justify-content: center; align-items: center; text-align: center; }
     </style>
 </head>
-<body>
+<body id="body-tag">
 
-    <!-- GİRİŞ EKRANI -->
     <div id="login-screen">
         <h1>CHAT-v.1.0.0</h1>
         <p style="font-size: 0.8rem; margin-bottom: 5px;">5 Haneli Giriş Kodunu Yazın:</p>
@@ -75,7 +73,6 @@
         <button onclick="requestJoin()">BAĞLAN</button>
     </div>
 
-    <!-- BEKLEME EKRANI (Düzeltilen Kısım) -->
     <div id="waiting-overlay">
         <div>
             <h2>ONAY BEKLENİYOR...</h2>
@@ -83,16 +80,14 @@
         </div>
     </div>
 
-    <!-- ONAY MODALI -->
     <div id="approval-modal">
         <p id="request-text" style="font-size: 0.85em;"></p>
         <div style="display: flex; gap: 8px; margin-top: 10px;">
-            <button onclick="ownerResponse(true)" style="background: #00d4ff; color: #000; margin: 0; padding: 5px;">KABUL ET</button>
-            <button onclick="ownerResponse(false)" style="background: #ff0000; color: #fff; margin: 0; padding: 5px;">REDDET[/REDDET]</button>
+            <button onclick="ownerResponse(true)" style="background: var(--main-color); color: #000; margin: 0; padding: 5px;">KABUL ET</button>
+            <button onclick="ownerResponse(false)" style="background: #ff0000; color: #fff; margin: 0; padding: 5px;">REDDET</button>
         </div>
     </div>
 
-    <!-- ANA CHAT EKRANI -->
     <div id="chat-screen">
         <div id="header-bar">
             <button id="menu-toggle" onclick="toggleSidebar()">☰</button>
@@ -103,8 +98,18 @@
         </div>
 
         <div id="sidebar">
-            <h3 style="font-size: 0.7em; color: gray; margin-bottom: 10px;">KULLANICILAR</h3>
+            <h3 class="sidebar-label">KULLANICILAR</h3>
             <div id="user-list"></div>
+
+            <h3 class="sidebar-label">AYARLAR</h3>
+            <select class="theme-select" onchange="changeTheme(this.value)">
+                <option value="default">Mavi (Siber)</option>
+                <option value="theme-green">Yeşil (Hacker)</option>
+                <option value="theme-white">Beyaz (Temiz)</option>
+                <option value="theme-red">Kırmızı (Alarm)</option>
+                <option value="theme-gold">Altın (Lüks)</option>
+            </select>
+
             <button onclick="toggleSidebar()" style="font-size: 9px; padding: 5px; margin-top: 10px; width: 100%;">KAPAT</button>
         </div>
 
@@ -112,7 +117,7 @@
             <div id="messages"></div>
             <div id="input-area">
                 <input type="text" id="messageInput" placeholder="Mesajını yaz...">
-                <button onclick="send()" style="width: auto; margin: 0; padding: 0 15px;">GÖNDER</button>
+                <button onclick="send()" style="width: auto; margin: 0; padding: 0 12px;">GÖNDER</button>
             </div>
         </div>
     </div>
@@ -124,31 +129,27 @@
         let currentRequest = null;
 
         function toggleSidebar() { document.getElementById('sidebar').classList.toggle('active'); }
+        
+        function changeTheme(themeName) {
+            document.getElementById('body-tag').className = themeName === 'default' ? '' : themeName;
+        }
 
         function requestJoin() {
             myUsername = document.getElementById('username').value.trim();
             const code = document.getElementById('roomCode').value;
             if (myUsername && code.length === 5) {
-                // İstek gönderildiğinde bekleme ekranını göstermeye hazır ol
                 socket.emit('requestJoin', { room: code, username: myUsername });
             } else { alert("Hata: 5 hane girmelisiniz!"); }
         }
 
-        // BEKLEME EKRANI TETİKLEYİCİSİ (Z-Index sayesinde artık görünecek)
-        socket.on('waitingApproval', () => { 
-            document.getElementById('waiting-overlay').style.display = 'flex'; 
-        });
-
-        socket.on('joinRejected', () => { 
-            alert("Giriş reddedildi!"); 
-            location.reload(); 
-        });
+        socket.on('waitingApproval', () => { document.getElementById('waiting-overlay').style.display = 'flex'; });
+        socket.on('joinRejected', () => { alert("Giriş reddedildi!"); location.reload(); });
         
         socket.on('joinApproved', (data) => {
             activeRoom = data.room;
-            document.getElementById('waiting-overlay').style.display = 'none'; // Bekleme ekranını kapat
-            document.getElementById('login-screen').style.display = 'none';   // Girişi kapat
-            document.getElementById('chat-screen').style.display = 'flex';    // Chat'i aç
+            document.getElementById('waiting-overlay').style.display = 'none';
+            document.getElementById('login-screen').style.display = 'none';
+            document.getElementById('chat-screen').style.display = 'flex'; 
             document.getElementById('currentRoom').innerText = activeRoom;
         });
 
@@ -183,24 +184,33 @@
             const input = document.getElementById('messageInput');
             const plainText = input.value;
             if (!plainText) return;
+
+            // ŞİFRESİZ KISIM (Saat ve İsim)
             const time = new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
-            const fullMsg = `[${time}] ${myUsername}: ${plainText}`;
-            const encrypted = CryptoJS.AES.encrypt(fullMsg, activeRoom).toString();
-            socket.emit('sendMessage', { room: activeRoom, message: encrypted });
+            const prefix = `[${time}] ${myUsername}: `;
+
+            // ŞİFRELİ KISIM (Sadece mesajın kendisi)
+            const encrypted = CryptoJS.AES.encrypt(plainText, activeRoom).toString();
+            
+            // Sunucuya her iki parçayı da gönderiyoruz
+            socket.emit('sendMessage', { room: activeRoom, prefix: prefix, message: encrypted });
             input.value = '';
         }
 
-        socket.on('receiveMessage', (encryptedMsg) => {
+        socket.on('receiveMessage', (data) => {
             const messagesDiv = document.getElementById('messages');
             const container = document.createElement('div');
             container.className = 'msg-container';
-            const textSpan = document.createElement('div');
-            textSpan.className = 'msg-text';
-            textSpan.textContent = encryptedMsg;
+            
+            // Mesaj yapısı: Prefix (Açık) + Mesaj (Şifreli)
+            container.innerHTML = `<span class="msg-prefix">${data.prefix}</span><span class="msg-text">${data.message}</span>`;
+            
+            const textSpan = container.querySelector('.msg-text');
 
             container.onmouseover = container.ontouchstart = function() {
                 try {
-                    const bytes = CryptoJS.AES.decrypt(encryptedMsg, activeRoom);
+                    // Sadece data.message kısmını çözmeye çalışıyoruz
+                    const bytes = CryptoJS.AES.decrypt(data.message, activeRoom);
                     const original = bytes.toString(CryptoJS.enc.Utf8);
                     if (original) {
                         textSpan.textContent = original;
@@ -210,11 +220,10 @@
             };
 
             container.onmouseout = container.ontouchend = function() {
-                textSpan.textContent = encryptedMsg;
-                textSpan.style.color = "#00d4ff";
+                textSpan.textContent = data.message;
+                textSpan.style.color = "inherit"; // Temaya göre otomatik değişir
             };
 
-            container.appendChild(textSpan);
             messagesDiv.appendChild(container);
             messagesDiv.scrollTop = messagesDiv.scrollHeight;
         });
