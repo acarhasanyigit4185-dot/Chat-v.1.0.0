@@ -7,7 +7,7 @@
     <script src="/socket.io/socket.io.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
     <style>
-        /* TEMA YÖNETİMİ */
+        /* TEMA AYARLARI */
         :root { --main-color: #00d4ff; --bg-color: #0a0a0a; --sidebar-bg: #050505; --msg-bg: #111; }
         .theme-green { --main-color: #00ff41; }
         .theme-white { --main-color: #ffffff; }
@@ -18,7 +18,6 @@
         html, body { height: 100%; width: 100%; overflow: hidden; background: var(--bg-color); color: var(--main-color); }
         body { font-family: 'Courier New', Courier, monospace; display: flex; justify-content: center; align-items: center; }
         
-        /* MODAL VE EKRANLAR */
         .screen-card { text-align: center; border: 1px solid var(--main-color); padding: 25px 15px; border-radius: 8px; background: #000; width: 85%; max-width: 320px; z-index: 500; position: relative; }
         #main-menu { display: flex; flex-direction: column; gap: 10px; }
         #login-screen { display: none; }
@@ -27,7 +26,6 @@
         button { background: var(--main-color); color: #000; border: none; padding: 10px; font-weight: bold; cursor: pointer; margin-top: 8px; width: 100%; }
         .btn-back { background: #333; color: #fff; font-size: 10px; padding: 5px; margin-top: 15px; }
 
-        /* CHAT EKRANI */
         #chat-screen { display: none; width: 100%; height: 100%; background: #000; position: fixed; inset: 0; flex-direction: column; z-index: 100; }
         #header-bar { height: 45px; background: #000; border-bottom: 1px solid #333; display: flex; align-items: center; padding: 0 10px; flex-shrink: 0; }
         #menu-toggle { background: #111; color: var(--main-color); border: 1px solid var(--main-color); width: 35px; height: 30px; margin-right: 10px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 18px; }
@@ -57,7 +55,6 @@
 </head>
 <body id="body-tag">
 
-    <!-- ANA MENÜ -->
     <div id="main-menu" class="screen-card">
         <h1>CHAT-v.1.0.0</h1>
         <p style="font-size: 0.8rem; margin-bottom: 10px;">Lütfen bir işlem seçin:</p>
@@ -65,7 +62,6 @@
         <button onclick="openLogin('gir')">ODAYA GİR</button>
     </div>
 
-    <!-- GİRİŞ EKRANI -->
     <div id="login-screen" class="screen-card">
         <h1 id="login-title">GİRİŞ</h1>
         <input type="text" id="username" placeholder="Kullanıcı Adınız" maxlength="15">
@@ -74,7 +70,6 @@
         <button class="btn-back" onclick="goBack()">ANA MENÜYE DÖN</button>
     </div>
 
-    <!-- BEKLEME EKRANI -->
     <div id="waiting-overlay">
         <div>
             <h2>ONAY BEKLENİYOR...</h2>
@@ -82,7 +77,6 @@
         </div>
     </div>
 
-    <!-- ONAY MODALI -->
     <div id="approval-modal">
         <p id="request-text" style="font-size: 0.85em;"></p>
         <div style="display: flex; gap: 8px; margin-top: 10px;">
@@ -91,7 +85,6 @@
         </div>
     </div>
 
-    <!-- CHAT EKRANI -->
     <div id="chat-screen">
         <div id="header-bar">
             <button id="menu-toggle" onclick="toggleSidebar()">☰</button>
@@ -129,16 +122,18 @@
         let activeRoom = "";
         let myUsername = "";
         let currentRequest = null;
+        let loginMode = ""; // Kur/Gir modunu takip eder
 
         function toggleSidebar() { document.getElementById('sidebar').classList.toggle('active'); }
         function changeTheme(themeName) { document.getElementById('body-tag').className = themeName === 'default' ? '' : themeName; }
 
-        // MENÜ GEÇİŞLERİ
         function openLogin(mode) {
+            loginMode = mode; // Seçilen modu kaydet
             document.getElementById('main-menu').style.display = 'none';
             document.getElementById('login-screen').style.display = 'block';
             document.getElementById('login-title').innerText = mode === 'kur' ? 'ODA KUR' : 'ODAYA GİR';
         }
+        
         function goBack() {
             document.getElementById('login-screen').style.display = 'none';
             document.getElementById('main-menu').style.display = 'flex';
@@ -148,9 +143,15 @@
             myUsername = document.getElementById('username').value.trim();
             const code = document.getElementById('roomCode').value;
             if (myUsername && code.length === 5) {
-                socket.emit('requestJoin', { room: code, username: myUsername });
-            } else { alert("Hata: 5 hane girmelisiniz!"); }
+                // Sunucuya 'type' (kur veya gir) bilgisini de gönderiyoruz
+                socket.emit('requestJoin', { room: code, username: myUsername, type: loginMode });
+            } else { alert("Hata: Bilgileri eksiksiz doldurun!"); }
         }
+
+        // HATA MESAJLARINI DİNLE
+        socket.on('error_msg', (msg) => {
+            alert(msg);
+        });
 
         socket.on('waitingApproval', () => { document.getElementById('waiting-overlay').style.display = 'flex'; });
         socket.on('joinRejected', () => { alert("Giriş reddedildi!"); location.reload(); });
@@ -159,7 +160,7 @@
             activeRoom = data.room;
             document.getElementById('waiting-overlay').style.display = 'none';
             document.getElementById('login-screen').style.display = 'none';
-            document.getElementById('main-menu').style.display = 'none'; // Ana menüyü de kapat
+            document.getElementById('main-menu').style.display = 'none';
             document.getElementById('chat-screen').style.display = 'flex'; 
             document.getElementById('currentRoom').innerText = activeRoom;
         });
@@ -230,4 +231,3 @@
     </script>
 </body>
 </html>
-
