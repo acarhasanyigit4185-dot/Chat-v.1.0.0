@@ -3,16 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gizli Chat V1 - Eğitim Sürümü</title>
+    <title>Gizli Chat V1 - Şifreli Metin Görünümü</title>
     
-    <!-- Socket.io: Sunucuyla anlık iletişim kurmamızı sağlayan kütüphane -->
+    <!-- Sunucuyla anlık (real-time) haberleşmeyi sağlayan kütüphane -->
     <script src="/socket.io/socket.io.js"></script>
     
-    <!-- CryptoJS: AES-256 şifreleme algoritmalarını kullanmamızı sağlayan kütüphane -->
+    <!-- AES-256 şifreleme motoru (CryptoJS) -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
     
     <style>
-        /* Temel sayfa tasarımı (Hacker/Terminal Teması) */
+        /* Tasarım Ayarları */
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { 
             font-family: 'Courier New', Courier, monospace; 
@@ -24,16 +24,16 @@
             min-height: 100vh; 
         }
         
-        /* Giriş kutusunun tasarımı */
+        /* Giriş Paneli */
         #login-screen { 
             text-align: center; 
             border: 1px solid #00ff41; 
             padding: 40px; 
             border-radius: 10px; 
             background: #000; 
+            box-shadow: 0 0 15px rgba(0, 255, 65, 0.2);
         }
 
-        /* Giriş alanları (Input) */
         input { 
             background: #000; 
             border: 1px solid #00ff41; 
@@ -44,7 +44,6 @@
             outline: none; 
         }
 
-        /* Buton tasarımı */
         button { 
             background: #00ff41; 
             color: #000; 
@@ -54,7 +53,7 @@
             cursor: pointer; 
         }
 
-        /* Mesajlaşma ekranı (Başlangıçta gizli: display: none) */
+        /* Mesajlaşma Paneli */
         #chat-screen { 
             display: none; 
             width: 95%; 
@@ -66,7 +65,6 @@
             background: #000; 
         }
 
-        /* Mesajların listelendiği alan */
         #messages { 
             flex: 1; 
             overflow-y: auto; 
@@ -75,7 +73,7 @@
             padding: 5px; 
         }
         
-        /* Mesaj kutucukları (BLUR KALDIRILDI) */
+        /* MESAJ KUTUSU: Blur (bulanıklık) tamamen kaldırıldı */
         .msg-container { 
             margin-bottom: 12px; 
             padding: 8px; 
@@ -83,12 +81,20 @@
             background: #111; 
             border-left: 3px solid #00ff41;
             word-wrap: break-word; 
+            cursor: help; /* Üzerine gelince yardım imleci çıksın */
+            transition: background 0.2s;
         }
 
-        /* Mesaj metni: Blur ve opacity (şeffaflık) kaldırıldı */
+        /* Mesaj Metni: Karakterler net ama şifreli görünecek */
         .msg-text { 
-            font-size: 0.9em;
+            font-size: 0.85em; /* Şifreli metin uzun olduğu için biraz küçük font */
             color: #00ff41; 
+            opacity: 0.8; /* Hafif sönük durması için (isteğe bağlı) */
+        }
+
+        /* Üzerine gelince arka planı hafifçe aydınlat */
+        .msg-container:hover {
+            background: #001a00;
         }
     </style>
 </head>
@@ -96,17 +102,17 @@
 
     <!-- GİRİŞ EKRANI -->
     <div id="login-screen">
-        <h1>CHAT v.1.0.0</h1>
-        <p>Giriş için 5 Haneli Kodunuzu giriniz:</p>
+        <h1>GİZLİ SİSTEM</h1>
+        <p>5 Haneli Giriş Kodunu Yazın:</p>
         <input type="text" id="roomCode" maxlength="5" placeholder="00000">
         <br>
         <button onclick="joinRoom()">BAĞLAN</button>
     </div>
 
-    <!-- MESAJLAŞMA EKRANI -->
+    <!-- CHAT EKRANI -->
     <div id="chat-screen">
-        <div style="padding-bottom: 10px; border-bottom: 1px solid #333; margin-bottom: 10px;">
-            SİSTEM: <span style="color: white;">ONLINE</span> | ODA: <b id="currentRoom"></b>
+        <div style="padding-bottom: 10px; border-bottom: 1px solid #333; margin-bottom: 10px; font-size: 0.8em;">
+            DURUM: <span style="color: white;">KORUMALI</span> | ODA: <b id="currentRoom"></b>
         </div>
         
         <div id="messages"></div>
@@ -118,81 +124,86 @@
     </div>
 
     <script>
-        // Socket.io bağlantısını başlatıyoruz
-        const socket = io();
-        let activeRoom = ""; // Kullanıcının o an hangi odada olduğunu saklar
+        const socket = io(); // Sunucu bağlantısını kur
+        let activeRoom = ""; // O anki oda kodunu (şifreyi) saklayan değişken
 
-        // ODAYA KATILMA FONKSİYONU
+        // --- ODAYA KATILMA FONKSİYONU ---
         function joinRoom() {
             const code = document.getElementById('roomCode').value;
             if (code.length === 5) {
-                activeRoom = code; // 5 haneli kodu hafızaya al (Şifreleme anahtarı bu olacak)
+                activeRoom = code; // Girilen kodu anahtar olarak belirle
                 
-                // Ekranları değiştir (Girişi gizle, chat'i göster)
+                // Ekranları değiştir
                 document.getElementById('login-screen').style.display = 'none';
                 document.getElementById('chat-screen').style.display = 'flex';
                 document.getElementById('currentRoom').innerText = activeRoom;
                 
-                // Sunucuya "Ben bu odaya girdim" mesajı gönder
+                // Sunucuya odaya girdiğimizi bildir
                 socket.emit('joinRoom', activeRoom);
             } else {
-                alert("Hata: Kod 5 haneli olmalıdır!");
+                alert("Hata: 5 hane girmelisiniz!");
             }
         }
 
-        // MESAJ GÖNDERME FONKSİYONU
+        // --- MESAJ GÖNDERME FONKSİYONU ---
         function send() {
             const input = document.getElementById('messageInput');
-            const plainText = input.value; // Kutudaki saf metin ("Selam" gibi)
+            const plainText = input.value; // Kutudaki saf yazı
             if (!plainText) return;
 
-            // --- KRİTİK NOKTA: ŞİFRELEME ---
-            // CryptoJS.AES.encrypt(metin, anahtar): Yazıyı oda koduyla şifreler.
-            // Sunucuya asla saf metin gitmez, sadece bu 'encrypted' hali gider.
+            // ADIM 1: Mesajı cihazda (browser) şifrele
+            // CryptoJS.AES.encrypt(mesaj, anahtar)
             const encrypted = CryptoJS.AES.encrypt(plainText, activeRoom).toString();
             
-            // Şifreli paketi odaya gönderiyoruz
+            // ADIM 2: Şifreli metni sunucuya fırlat
             socket.emit('sendMessage', { room: activeRoom, message: encrypted });
-            input.value = ''; // Giriş kutusunu temizle
+            input.value = ''; // Kutuyu boşalt
         }
 
-        // MESAJ ALMA VE ÇÖZME FONKSİYONU
+        // --- MESAJ ALMA VE GÖRÜNTÜLEME FONKSİYONU ---
         socket.on('receiveMessage', (encryptedMsg) => {
             const messagesDiv = document.getElementById('messages');
             
-            // Yeni bir mesaj kutusu (div) oluşturuyoruz
+            // Yeni bir mesaj öğesi oluştur
             const container = document.createElement('div');
             container.className = 'msg-container';
             
             const textSpan = document.createElement('div');
             textSpan.className = 'msg-text';
+            
+            // BAŞLANGIÇ: Mesajı olduğu gibi (şifreli karakterlerle) göster
+            textSpan.textContent = encryptedMsg;
 
-            // --- KRİTİK NOKTA: ŞİFRE ÇÖZME ---
-            try {
-                // Sunucudan gelen şifreli metni, kendi oda kodumuzla çözmeye çalışıyoruz
-                const bytes = CryptoJS.AES.decrypt(encryptedMsg, activeRoom);
-                // Çözülen baytları okunabilir UTF-8 metne çeviriyoruz
-                const original = bytes.toString(CryptoJS.enc.Utf8);
-                
-                if (original) {
-                    // Eğer anahtar doğruysa çözülmüş hali göster
-                    textSpan.textContent = ">>> " + original;
-                } else {
-                    // Anahtar yanlışsa (başka odadan sızma varsa) şifreli hali göster
-                    textSpan.textContent = "[KİLİTLİ VERİ]: " + encryptedMsg;
+            // --- ÜZERİNE GELİNCE (HOVER) ÇÖZME ---
+            container.onmouseover = container.ontouchstart = function() {
+                try {
+                    // Cihazdaki oda koduyla (anahtarla) şifreyi çöz
+                    const bytes = CryptoJS.AES.decrypt(encryptedMsg, activeRoom);
+                    const original = bytes.toString(CryptoJS.enc.Utf8);
+                    
+                    if (original) {
+                        textSpan.textContent = "🔓: " + original; // Çözülmüş hali
+                        textSpan.style.color = "white"; // Daha kolay okunması için rengi değiştir
+                    }
+                } catch(e) {
+                    textSpan.textContent = "!!! Çözülemedi !!!";
                 }
-            } catch(e) {
-                textSpan.textContent = "!!! Veri Bozuldu !!!";
-            }
+            };
+
+            // --- FARE ÇIKINCA TEKRAR ŞİFRELE ---
+            container.onmouseout = container.ontouchend = function() {
+                textSpan.textContent = encryptedMsg; // Karakterleri geri getir
+                textSpan.style.color = "#00ff41"; // Eski yeşil rengine dön
+            };
 
             container.appendChild(textSpan);
             messagesDiv.appendChild(container);
             
-            // Sohbeti otomatik en aşağı kaydır
+            // Mesaj gelince sayfayı aşağı kaydır
             messagesDiv.scrollTop = messagesDiv.scrollHeight;
         });
 
-        // Enter tuşuna basınca gönderme desteği
+        // Enter tuşu desteği
         document.getElementById('messageInput').addEventListener("keypress", (e) => {
             if (e.key === "Enter") send();
         });
