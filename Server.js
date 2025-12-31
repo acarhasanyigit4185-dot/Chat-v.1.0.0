@@ -8,7 +8,10 @@ const io = new Server(server);
 
 app.use(express.static('public'));
 
+// Odaların verisini ve oda sahiplerini tutar
 const roomsData = {};
+// IP bazlı deneme zamanlarını tutar (Flood koruması)
+const lastAttempts = {};
 
 const getLogTime = () => {
     return new Date().toLocaleString('tr-TR', { timeZone: 'Europe/Istanbul' });
@@ -16,35 +19,47 @@ const getLogTime = () => {
 
 io.on('connection', (socket) => {
     
+    // Gerçek IP adresini al (Render ve Proxy desteğiyle)
+    const clientIp = socket.handshake.headers['x-forwarded-for'] || socket.handshake.address;
+
     socket.on('requestJoin', (data) => {
-        const { room, username, type } = data; // 'type' bilgisi eklendi (kur/gir)
+        const { room, username, type } = data;
+        const now = Date.now();
+
+        // --- 5 SANİYE KURALI (IP BAZLI) ---
+        if (lastAttempts[clientIp] && (now - lastAttempts[clientIp] < 5000)) {
+            const kalan = Math.ceil((5000 - (now - lastAttempts[clientIp])) / 1000);
+            return socket.emit('error_msg', `Güvenlik: Lütfen ${kalan} saniye bekleyin.`);
+        }
+        
+        // İşlem zamanını güncelle
+        lastAttempts[clientIp] = now;
         socket.username = username;
 
         const roomExists = roomsData[room] && Array.from(io.sockets.adapter.rooms.get(room) || []).length > 0;
 
-        // 1. DURUM: ODA KURMAK İSTİYOR
+        // ODA KURMA
         if (type === 'kur') {
             if (roomExists) {
+                console.log(`[${getLogTime()}] [IP: ${clientIp}] ⚠️ KURMA HATASI: ${username} -> Oda ${room} dolu.`);
                 return socket.emit('error_msg', "Hata: Bu oda kodu zaten kullanımda!");
             }
-            // Oda yoksa kur
             roomsData[room] = { owner: socket.id, users: {} };
             socket.join(room);
             roomsData[room].users[socket.id] = username;
             
-            console.log(`[${getLogTime()}] 🟢 ODA KURULDU: ${username} -> Oda: ${room}`);
+            console.log(`[${getLogTime()}] [IP: ${clientIp}] 🟢 ODA KURULDU: ${username} (Sahip) -> Oda: ${room}`);
             socket.emit('joinApproved', { room, isOwner: true });
             updateRoomInfo(room);
         } 
-        
-        // 2. DURUM: ODAYA GİRMEK İSTİYOR
+        // ODAYA GİRME
         else if (type === 'gir') {
             if (!roomExists) {
-                return socket.emit('error_msg', "Hata: Oda bulunamadı! Önce kurulması gerekir.");
+                console.log(`[${getLogTime()}] [IP: ${clientIp}] ⚠️ GİRİŞ HATASI: ${username} -> Oda ${room} bulunamadı.`);
+                return socket.emit('error_msg', "Hata: Oda bulunamadı!");
             }
-            // Oda varsa sahibine sor
             const ownerId = roomsData[room].owner;
-            console.log(`[${getLogTime()}] 🛡️ GİRİŞ İSTEĞİ: ${username} -> Oda: ${room}`);
+            console.log(`[${getLogTime()}] [IP: ${clientIp}] 🛡️ GİRİŞ İSTEĞİ: ${username} -> Oda: ${room}`);
             io.to(ownerId).emit('askOwnerPermission', { requestingUser: username, socketId: socket.id });
             socket.emit('waitingApproval');
         }
@@ -57,12 +72,12 @@ io.on('connection', (socket) => {
             if (guestSocket) {
                 guestSocket.join(room);
                 roomsData[room].users[socketId] = username;
-                console.log(`[${getLogTime()}] ✅ GİRİŞ ONAYLANDI: ${username} -> Oda: ${room}`);
+                console.log(`[${getLogTime()}] ✅ ONAYLANDI: ${username} odaya girdi.`);
                 guestSocket.emit('joinApproved', { room, isOwner: false });
                 updateRoomInfo(room);
             }
         } else {
-            console.log(`[${getLogTime()}] ❌ GİRİŞ REDDEDİLDİ: ${username} -> Oda: ${room}`);
+            console.log(`[${getLogTime()}] ❌ REDDEDİLDİ: ${username} isteği geri çevrildi.`);
             io.to(socketId).emit('joinRejected');
         }
     });
@@ -72,14 +87,14 @@ io.on('connection', (socket) => {
     });
 
     socket.on('disconnecting', () => {
-        const username = socket.username || "Bilinmeyen Kullanıcı";
+        const username = socket.username || "Anonim";
         socket.rooms.forEach(room => {
             if (roomsData[room] && roomsData[room].users[socket.id]) {
-                console.log(`[${getLogTime()}] 🔴 AYRILDI: ${username} -> Oda: ${room}`);
+                console.log(`[${getLogTime()}] [IP: ${clientIp}] 🔴 AYRILDI: ${username} -> Oda: ${room}`);
                 delete roomsData[room].users[socket.id];
                 if (roomsData[room].owner === socket.id) {
-                    const remainingUsers = Object.keys(roomsData[room].users);
-                    roomsData[room].owner = remainingUsers.length > 0 ? remainingUsers[0] : null;
+                    const remaining = Object.keys(roomsData[room].users);
+                    roomsData[room].owner = remaining.length > 0 ? remaining[0] : null;
                 }
                 setTimeout(() => updateRoomInfo(room), 100);
             }
@@ -98,4 +113,4 @@ io.on('connection', (socket) => {
 });
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => console.log(`[${getLogTime()}] 🚀 SİSTEM AKTİF`));
+server.listen(PORT, () => console.log(`[${getLogTime()}] 🚀 SİSTEM HAZIR | Port: ${PORT}`));
