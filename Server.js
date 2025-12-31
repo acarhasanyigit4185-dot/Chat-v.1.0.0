@@ -54,7 +54,8 @@ io.on('connection', (socket) => {
     });
 
     socket.on('sendMessage', (data) => {
-        io.to(data.room).emit('receiveMessage', data.message);
+        // data: { room, prefix, message } gönderiliyor
+        io.to(data.room).emit('receiveMessage', data);
     });
 
     socket.on('disconnecting', () => {
@@ -74,15 +75,11 @@ io.on('connection', (socket) => {
 
     function updateRoomInfo(room) {
         if (roomsData[room]) {
-            // Kullanıcıları objeler halinde gönderiyoruz: {name, isOwner}
             const userList = Object.keys(roomsData[room].users).map(id => ({
                 name: roomsData[room].users[id],
                 isOwner: id === roomsData[room].owner
             }));
-            io.to(room).emit('roomUpdate', {
-                count: userList.length,
-                users: userList
-            });
+            io.to(room).emit('roomUpdate', { count: userList.length, users: userList });
         }
     }
 });
