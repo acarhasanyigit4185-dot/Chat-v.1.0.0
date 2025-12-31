@@ -1,47 +1,90 @@
-// Gerekli araçlar (kütüphaneler)
-const express = require('express'); 
-const http = require('http'); 
-const { Server } = require('socket.io'); 
+const express = require('express');
+const http = require('http');
+const { Server } = require('socket.io');
 
-const app = express(); // Web uygulamasını oluştur
-const server = http.createServer(app); // HTTP sunucusunu kur
-const io = new Server(server); // Soket bağlantısını sunucuya bağla
+const app = express();
+const server = http.createServer(app);
+const io = new Server(server);
 
-// 'public' isimli klasörü dış dünyaya aç (Kullanıcılar buradaki dosyaları görür)
 app.use(express.static('public'));
 
-// Bir tarayıcı bağlandığında bu olay (event) başlar
+// Odaların bilgisini RAM'de tutalım: { odaKodu: { owner: id, users: { id: username } } }
+const roomsData = {};
+
 io.on('connection', (socket) => {
     
-    // Kullanıcı bir odaya girmek istediğinde
-    socket.on('joinRoom', (room) => {
-        // Socket.io bu kullanıcıyı sadece bu 'oda ismi' altına gruplar
-        socket.join(room);
-        console.log(`BİLGİ: Bir cihaz şu odaya kilitlendi: ${room}`);
+    // KULLANICI ODAYA GİRMEK İSTEDİĞİNDE
+    socket.on('requestJoin', (data) => {
+        const { room, username } = data;
+        
+        // Eğer oda yoksa, ilk giren kişiyi sahibi yap
+        if (!roomsData[room] || Array.from(io.sockets.adapter.rooms.get(room) || []).length === 0) {
+            roomsData[room] = { owner: socket.id, users: {} };
+            socket.join(room);
+            roomsData[room].users[socket.id] = username;
+            
+            socket.emit('joinApproved', { room, isOwner: true });
+            updateRoomInfo(room);
+        } else {
+            // Oda varsa, sahibine sor (onay iste)
+            const ownerId = roomsData[room].owner;
+            io.to(ownerId).emit('askOwnerPermission', { 
+                requestingUser: username, 
+                socketId: socket.id 
+            });
+            socket.emit('waitingApproval');
+        }
     });
 
-    // Bir kullanıcı şifreli paket gönderdiğinde
-    socket.on('sendMessage', (data) => {
-        // data objesi şunları içerir: { room: 'oda_no', message: 'şifreli_yazı' }
+    // SAHİBİ ONAY VERDİĞİNDE
+    socket.on('ownerResponse', (data) => {
+        const { room, socketId, username, approved } = data;
         
-        // SUNUCUNUN ROLÜ:
-        // İçeriğe bakmaz, çözmeye çalışmaz. Sadece odayı kontrol eder
-        // ve paketi o odadaki diğer cihazlara olduğu gibi (emit) iletir.
+        if (approved) {
+            const guestSocket = io.sockets.sockets.get(socketId);
+            if (guestSocket) {
+                guestSocket.join(room);
+                roomsData[room].users[socketId] = username;
+                guestSocket.emit('joinApproved', { room, isOwner: false });
+                updateRoomInfo(room);
+            }
+        } else {
+            io.to(socketId).emit('joinRejected');
+        }
+    });
+
+    // MESAJLAŞMA
+    socket.on('sendMessage', (data) => {
         io.to(data.room).emit('receiveMessage', data.message);
     });
 
-    // Kullanıcı sekmeyi kapattığında
-    socket.on('disconnect', () => {
-        console.log('BİLGİ: Bir cihazın bağlantısı koptu.');
+    // AYRILMA DURUMU
+    socket.on('disconnecting', () => {
+        socket.rooms.forEach(room => {
+            if (roomsData[room] && roomsData[room].users[socket.id]) {
+                delete roomsData[room].users[socket.id];
+                
+                // Eğer sahibi çıktıysa, bir sonrakini sahibi yap (isteğe bağlı)
+                if (roomsData[room].owner === socket.id) {
+                    const remaining = Array.from(roomsData[room].users);
+                    roomsData[room].owner = remaining.length > 0 ? Object.keys(roomsData[room].users)[0] : null;
+                }
+                
+                setTimeout(() => updateRoomInfo(room), 100);
+            }
+        });
     });
+
+    function updateRoomInfo(room) {
+        if (roomsData[room]) {
+            const userList = Object.values(roomsData[room].users);
+            io.to(room).emit('roomUpdate', {
+                count: userList.length,
+                users: userList
+            });
+        }
+    }
 });
 
-// PORT AYARI: 
-// Render gibi servisler kendi port numarasını buraya enjekte eder (process.env.PORT)
-// Eğer kendi bilgisayarımızda çalıştırıyorsak 3000 portu geçerli olur.
 const PORT = process.env.PORT || 3000;
-
-// Sunucuyu başlat
-server.listen(PORT, () => {
-    console.log(`POSTACI: Sunucu şu an ${PORT} portunda çalışıyor.`);
-});
+server.listen(PORT, () => console.log(`Sistem ${PORT} portunda aktif.`));
