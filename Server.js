@@ -1,48 +1,47 @@
-// Gerekli modülleri (kütüphaneleri) içe aktarıyoruz
-const express = require('express'); // Web sunucusu kütüphanesi
-const http = require('http'); // HTTP protokolü kütüphanesi
-const { Server } = require('socket.io'); // Socket.io (Anlık iletişim) kütüphanesi
+// Gerekli araçlar (kütüphaneler)
+const express = require('express'); 
+const http = require('http'); 
+const { Server } = require('socket.io'); 
 
-const app = express(); // Express uygulamasını başlat
-const server = http.createServer(app); // Express'i standart bir HTTP sunucusuna bağla
-const io = new Server(server); // Socket.io'yu sunucuya entegre et
+const app = express(); // Web uygulamasını oluştur
+const server = http.createServer(app); // HTTP sunucusunu kur
+const io = new Server(server); // Soket bağlantısını sunucuya bağla
 
-// 'public' klasörü içindeki tüm dosyaları (html, css, js) internete aç
-// Kullanıcı siteye girdiğinde otomatik olarak public/index.html dosyası yüklenir.
+// 'public' isimli klasörü dış dünyaya aç (Kullanıcılar buradaki dosyaları görür)
 app.use(express.static('public'));
 
-// Bir kullanıcı sunucuya bağlandığında (Siteyi açtığında)
+// Bir tarayıcı bağlandığında bu olay (event) başlar
 io.on('connection', (socket) => {
     
-    // Kullanıcı bir odaya katılmak istediğinde ('joinRoom' mesajı attığında)
+    // Kullanıcı bir odaya girmek istediğinde
     socket.on('joinRoom', (room) => {
-        // Socket.io'nun dahili 'join' özelliğini kullanarak kullanıcıyı o odaya hapseder
+        // Socket.io bu kullanıcıyı sadece bu 'oda ismi' altına gruplar
         socket.join(room);
-        console.log(`BİLGİ: Bir kullanıcı şu odaya girdi: ${room}`);
+        console.log(`BİLGİ: Bir cihaz şu odaya kilitlendi: ${room}`);
     });
 
-    // Bir kullanıcı mesaj gönderdiğinde ('sendMessage' mesajı attığında)
+    // Bir kullanıcı şifreli paket gönderdiğinde
     socket.on('sendMessage', (data) => {
-        // data: { room: '12345', message: 'U2FsdGVkX1...' }
+        // data objesi şunları içerir: { room: 'oda_no', message: 'şifreli_yazı' }
         
-        // SUNUCUNUN GÖREVİ:
-        // İçeriği asla açmaz veya çözmez. Sadece 'data.room' içindeki herkese
-        // şifreli mesajı olduğu gibi ('receiveMessage' olarak) iletir.
+        // SUNUCUNUN ROLÜ:
+        // İçeriğe bakmaz, çözmeye çalışmaz. Sadece odayı kontrol eder
+        // ve paketi o odadaki diğer cihazlara olduğu gibi (emit) iletir.
         io.to(data.room).emit('receiveMessage', data.message);
     });
 
     // Kullanıcı sekmeyi kapattığında
     socket.on('disconnect', () => {
-        console.log('BİLGİ: Bir kullanıcı sistemden ayrıldı.');
+        console.log('BİLGİ: Bir cihazın bağlantısı koptu.');
     });
 });
 
-// PORT AYARI:
-// Render gibi servisler kendi portunu (process.env.PORT) atar. 
-// Eğer yerel bilgisayardaysak 3000 portunu kullanırız.
+// PORT AYARI: 
+// Render gibi servisler kendi port numarasını buraya enjekte eder (process.env.PORT)
+// Eğer kendi bilgisayarımızda çalıştırıyorsak 3000 portu geçerli olur.
 const PORT = process.env.PORT || 3000;
 
-// Sunucuyu belirtilen portta dinlemeye başla
+// Sunucuyu başlat
 server.listen(PORT, () => {
-    console.log(`SİSTEM: Sunucu ${PORT} portunda başarıyla başlatıldı!`);
+    console.log(`POSTACI: Sunucu şu an ${PORT} portunda çalışıyor.`);
 });
