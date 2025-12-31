@@ -20,15 +20,17 @@ io.on('connection', (socket) => {
         const { room, username } = data;
         socket.username = username;
 
+        // EĞER ODA YOKSA VEYA BOŞSA (ODA KURMA)
         if (!roomsData[room] || Array.from(io.sockets.adapter.rooms.get(room) || []).length === 0) {
             roomsData[room] = { owner: socket.id, users: {} };
             socket.join(room);
             roomsData[room].users[socket.id] = username;
             
-            console.log(`[${getLogTime()}] 🔵 ODA KURULDU: ${username} (Sahip) -> Oda: ${room}`);
+            console.log(`[${getLogTime()}] 🟢 ODA KURULDU: ${username} -> Oda: ${room}`);
             socket.emit('joinApproved', { room, isOwner: true });
             updateRoomInfo(room);
         } else {
+            // EĞER ODA VARSA (GİRİŞ İSTEĞİ)
             const ownerId = roomsData[room].owner;
             console.log(`[${getLogTime()}] 🛡️ GİRİŞ İSTEĞİ: ${username} -> Oda: ${room}`);
             io.to(ownerId).emit('askOwnerPermission', { requestingUser: username, socketId: socket.id });
@@ -54,7 +56,6 @@ io.on('connection', (socket) => {
     });
 
     socket.on('sendMessage', (data) => {
-        // data: { room, prefix, message } gönderiliyor
         io.to(data.room).emit('receiveMessage', data);
     });
 
@@ -85,6 +86,4 @@ io.on('connection', (socket) => {
 });
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => {
-    console.log(`[${getLogTime()}] 🚀 SİSTEM AKTİF: Sunucu ${PORT} portunda çalışıyor.`);
-});
+server.listen(PORT, () => console.log(`[${getLogTime()}] 🚀 SİSTEM AKTİF`));
