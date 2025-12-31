@@ -17,11 +17,17 @@ const getLogTime = () => {
 io.on('connection', (socket) => {
     
     socket.on('requestJoin', (data) => {
-        const { room, username } = data;
+        const { room, username, type } = data; // 'type' bilgisi eklendi (kur/gir)
         socket.username = username;
 
-        // EĞER ODA YOKSA VEYA BOŞSA (ODA KURMA)
-        if (!roomsData[room] || Array.from(io.sockets.adapter.rooms.get(room) || []).length === 0) {
+        const roomExists = roomsData[room] && Array.from(io.sockets.adapter.rooms.get(room) || []).length > 0;
+
+        // 1. DURUM: ODA KURMAK İSTİYOR
+        if (type === 'kur') {
+            if (roomExists) {
+                return socket.emit('error_msg', "Hata: Bu oda kodu zaten kullanımda!");
+            }
+            // Oda yoksa kur
             roomsData[room] = { owner: socket.id, users: {} };
             socket.join(room);
             roomsData[room].users[socket.id] = username;
@@ -29,8 +35,14 @@ io.on('connection', (socket) => {
             console.log(`[${getLogTime()}] 🟢 ODA KURULDU: ${username} -> Oda: ${room}`);
             socket.emit('joinApproved', { room, isOwner: true });
             updateRoomInfo(room);
-        } else {
-            // EĞER ODA VARSA (GİRİŞ İSTEĞİ)
+        } 
+        
+        // 2. DURUM: ODAYA GİRMEK İSTİYOR
+        else if (type === 'gir') {
+            if (!roomExists) {
+                return socket.emit('error_msg', "Hata: Oda bulunamadı! Önce kurulması gerekir.");
+            }
+            // Oda varsa sahibine sor
             const ownerId = roomsData[room].owner;
             console.log(`[${getLogTime()}] 🛡️ GİRİŞ İSTEĞİ: ${username} -> Oda: ${room}`);
             io.to(ownerId).emit('askOwnerPermission', { requestingUser: username, socketId: socket.id });
