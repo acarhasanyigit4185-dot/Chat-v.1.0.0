@@ -2,8 +2,8 @@
 <html lang="tr">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Chat V1</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Gizli Chat V1</title>
     <script src="/socket.io/socket.io.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
     <style>
@@ -11,48 +11,58 @@
         body { font-family: 'Courier New', Courier, monospace; background: #0a0a0a; color: #00ff41; display: flex; justify-content: center; align-items: center; min-height: 100vh; overflow: hidden; }
         
         /* GİRİŞ EKRANI */
-        #login-screen { text-align: center; border: 1px solid #00ff41; padding: 40px; border-radius: 10px; background: #000; width: 350px; }
-        input { background: #000; border: 1px solid #00ff41; color: #00ff41; padding: 10px; margin: 5px; text-align: center; width: 100%; outline: none; }
-        button { background: #00ff41; color: #000; border: none; padding: 10px 20px; font-weight: bold; cursor: pointer; margin-top: 10px; width: 100%; }
+        #login-screen { text-align: center; border: 1px solid #00ff41; padding: 40px; border-radius: 10px; background: #000; width: 90%; max-width: 350px; }
+        input { background: #000; border: 1px solid #00ff41; color: #00ff41; padding: 12px; margin: 5px 0; text-align: center; width: 100%; outline: none; font-size: 16px; }
+        button { background: #00ff41; color: #000; border: none; padding: 12px; font-weight: bold; cursor: pointer; margin-top: 10px; width: 100%; }
         
         /* ANA PANEL */
-        #chat-screen { display: none; width: 100%; height: 100vh; background: #000; display: none; }
+        #chat-screen { display: none; width: 100%; height: 100vh; background: #000; position: relative; overflow: hidden; }
         
-        /* YAN MENÜ (KULLANICI LİSTESİ) */
-        #sidebar { width: 200px; border-right: 1px solid #333; padding: 15px; display: flex; flex-direction: column; background: #050505; }
+        /* YAN MENÜ */
+        #sidebar { 
+            position: absolute; left: -200px; top: 0; width: 200px; height: 100%; 
+            border-right: 1px solid #333; padding: 15px; background: #050505; 
+            z-index: 100; transition: 0.3s; 
+        }
+        #sidebar.active { left: 0; }
         #user-list { margin-top: 20px; font-size: 0.8em; }
-        .user-item { margin-bottom: 5px; padding: 3px; border-bottom: 1px solid #111; }
+        .user-item { margin-bottom: 8px; padding: 5px; border-bottom: 1px solid #111; }
 
-        /* MESAJ ALANI */
-        #main-chat { flex: 1; display: flex; flex-direction: column; padding: 15px; }
-        #messages { flex: 1; overflow-y: auto; margin-bottom: 10px; padding: 10px; }
+        /* ANA CHAT ALANI */
+        #main-chat { flex: 1; display: flex; flex-direction: column; width: 100%; height: 100%; }
+        #messages { flex: 1; overflow-y: auto; padding: 10px; padding-top: 55px; } 
         
-        /* MESAJ KUTUSU */
-        .msg-container { margin-bottom: 12px; padding: 8px; border-radius: 4px; background: #111; border-left: 3px solid #00ff41; cursor: help; }
-        .msg-text { font-size: 0.85em; opacity: 0.8; }
+        /* ÜST BAR */
+        #header-bar { 
+            position: absolute; top: 0; left: 0; right: 0; height: 50px; 
+            background: #000; border-bottom: 1px solid #333; 
+            display: flex; align-items: center; padding: 0 10px; z-index: 50; 
+        }
+        #menu-toggle { 
+            background: #111; color: #00ff41; border: 1px solid #00ff41; 
+            width: 35px; height: 35px; margin-right: 10px; cursor: pointer;
+        }
+
+        /* MESAJ TASARIMI */
+        .msg-container { margin-bottom: 12px; padding: 10px; border-radius: 4px; background: #111; border-left: 3px solid #00ff41; cursor: help; width: 100%; }
+        .msg-text { font-size: 0.85em; opacity: 0.8; word-break: break-all; }
         .msg-container:hover { background: #001a00; }
 
-        /* ONAY MODALI */
-        #approval-modal { display: none; position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background: #000; border: 2px solid #00ff41; padding: 20px; z-index: 100; text-align: center; box-shadow: 0 0 20px #00ff41; }
-        .modal-btns { display: flex; gap: 10px; margin-top: 15px; }
-        .btn-yes { background: #00ff41; color: #000; }
-        .btn-no { background: #ff0000; color: #fff; }
-
-        /* BEKLEME EKRANI */
-        #waiting-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.9); z-index: 200; justify-content: center; align-items: center; text-align: center; }
+        #input-area { display: flex; gap: 5px; padding: 10px; border-top: 1px solid #333; }
+        #approval-modal { display: none; position: fixed; top: 50px; left: 50%; transform: translateX(-50%); background: #000; border: 2px solid #00ff41; padding: 20px; z-index: 300; text-align: center; width: 80%; }
+        #waiting-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.95); z-index: 400; justify-content: center; align-items: center; text-align: center; }
     </style>
 </head>
 <body>
 
-    <!-- GİRİŞ -->
     <div id="login-screen">
-        <h1>CHAT-V.1.0.0</h1>
+        <h1>CHAT-v.1.0.0</h1>
+        <p>5 Haneli Giriş Kodunu Yazın:</p>
         <input type="text" id="username" placeholder="Kullanıcı Adınız" maxlength="15">
-        <input type="text" id="roomCode" maxlength="5" placeholder="Oda Kodu (5 Hane)">
-        <button onclick="requestJoin()">SOHBETE GİRİŞ YAP</button>
+        <input type="text" id="roomCode" maxlength="5" placeholder="00000">
+        <button onclick="requestJoin()">BAĞLAN</button>
     </div>
 
-    <!-- BEKLEME EKRANI -->
     <div id="waiting-overlay">
         <div>
             <h2>ONAY BEKLENİYOR...</h2>
@@ -60,30 +70,34 @@
         </div>
     </div>
 
-    <!-- ONAY KUTUSU (SAHİP İÇİN) -->
     <div id="approval-modal">
         <p id="request-text"></p>
-        <div class="modal-btns">
-            <button class="btn-yes" id="approve-btn">KABUL ET</button>
-            <button class="btn-no" id="reject-btn">REDDET</button>
+        <div style="display: flex; gap: 10px; margin-top: 15px;">
+            <button onclick="ownerResponse(true)" style="background: #00ff41; color: #000; margin: 0;">KABUL ET</button>
+            <button onclick="ownerResponse(false)" style="background: #ff0000; color: #fff; margin: 0;">REDDET</button>
         </div>
     </div>
 
-    <!-- CHAT EKRANI -->
     <div id="chat-screen">
-        <div id="sidebar">
-            <h3 style="font-size: 0.7em; color: gray;">KULLANICILAR</h3>
-            <div id="user-list"></div>
-        </div>
-        <div id="main-chat">
-            <div style="padding-bottom: 10px; border-bottom: 1px solid #333; margin-bottom: 10px; font-size: 0.8em; display: flex; justify-content: space-between;">
+        <div id="header-bar">
+            <button id="menu-toggle" onclick="toggleSidebar()">☰</button>
+            <div style="font-size: 0.75em; flex: 1; display: flex; justify-content: space-between;">
+                <span>ODA MEVCUDU: <b id="roomCount">0</b></span>
                 <span>ODA: <b id="currentRoom"></b></span>
-                <span>MEVCUT: <b id="roomCount">0</b></span>
             </div>
+        </div>
+
+        <div id="sidebar">
+            <h3 style="font-size: 0.7em; color: gray; margin-bottom: 10px;">KULLANICILAR</h3>
+            <div id="user-list"></div>
+            <button onclick="toggleSidebar()" style="font-size: 10px; padding: 5px; margin-top: auto;">KAPAT</button>
+        </div>
+
+        <div id="main-chat">
             <div id="messages"></div>
-            <div style="display: flex; gap: 5px;">
-                <input type="text" id="messageInput" style="flex: 1; margin: 0; text-align: left;" placeholder="Mesaj gönder...">
-                <button onclick="send()" style="width: auto; margin: 0;">GÖNDER</button>
+            <div id="input-area">
+                <input type="text" id="messageInput" style="flex: 1; margin: 0; text-align: left;" placeholder="Mesajını yaz...">
+                <button onclick="send()" style="width: auto; margin: 0; padding: 0 15px;">GÖNDER</button>
             </div>
         </div>
     </div>
@@ -92,29 +106,21 @@
         const socket = io();
         let activeRoom = "";
         let myUsername = "";
+        let currentRequest = null;
 
-        // GİRİŞ İSTEĞİ
+        function toggleSidebar() { document.getElementById('sidebar').classList.toggle('active'); }
+
         function requestJoin() {
             myUsername = document.getElementById('username').value.trim();
             const code = document.getElementById('roomCode').value;
-            
             if (myUsername && code.length === 5) {
                 socket.emit('requestJoin', { room: code, username: myUsername });
-            } else {
-                alert("Lütfen geçerli bir ad ve 5 haneli kod girin!");
-            }
+            } else { alert("Hata: 5 hane girmelisiniz!"); }
         }
 
-        // DURUM DİNLEYİCİLERİ
-        socket.on('waitingApproval', () => {
-            document.getElementById('waiting-overlay').style.display = 'flex';
-        });
-
-        socket.on('joinRejected', () => {
-            alert("Oda sahibi girişinizi reddetti!");
-            location.reload();
-        });
-
+        socket.on('waitingApproval', () => { document.getElementById('waiting-overlay').style.display = 'flex'; });
+        socket.on('joinRejected', () => { alert("Giriş reddedildi!"); location.reload(); });
+        
         socket.on('joinApproved', (data) => {
             activeRoom = data.room;
             document.getElementById('waiting-overlay').style.display = 'none';
@@ -123,23 +129,20 @@
             document.getElementById('currentRoom').innerText = activeRoom;
         });
 
-        // ODA SAHİBİNE GELEN SORU
         socket.on('askOwnerPermission', (data) => {
-            const modal = document.getElementById('approval-modal');
+            currentRequest = data;
             document.getElementById('request-text').innerText = `${data.requestingUser} odaya girmek istiyor.`;
-            modal.style.display = 'block';
-
-            document.getElementById('approve-btn').onclick = () => {
-                socket.emit('ownerResponse', { room: activeRoom, socketId: data.socketId, username: data.requestingUser, approved: true });
-                modal.style.display = 'none';
-            };
-            document.getElementById('reject-btn').onclick = () => {
-                socket.emit('ownerResponse', { room: activeRoom, socketId: data.socketId, username: data.requestingUser, approved: false });
-                modal.style.display = 'none';
-            };
+            document.getElementById('approval-modal').style.display = 'block';
         });
 
-        // KULLANICI LİSTESİ GÜNCELLEME
+        function ownerResponse(approved) {
+            if (currentRequest) {
+                socket.emit('ownerResponse', { room: activeRoom, socketId: currentRequest.socketId, username: currentRequest.requestingUser, approved: approved });
+                document.getElementById('approval-modal').style.display = 'none';
+                currentRequest = null;
+            }
+        }
+
         socket.on('roomUpdate', (data) => {
             document.getElementById('roomCount').innerText = data.count;
             const list = document.getElementById('user-list');
@@ -152,12 +155,10 @@
             });
         });
 
-        // MESAJLAŞMA (AYNI ŞİFRELEME MANTIĞI)
         function send() {
             const input = document.getElementById('messageInput');
             const plainText = input.value;
             if (!plainText) return;
-            // Şifreleme (Kullanıcı adını da mesajın başına ekleyelim)
             const fullMsg = `${myUsername}: ${plainText}`;
             const encrypted = CryptoJS.AES.encrypt(fullMsg, activeRoom).toString();
             socket.emit('sendMessage', { room: activeRoom, message: encrypted });
@@ -180,7 +181,7 @@
                         textSpan.textContent = original;
                         textSpan.style.color = "white";
                     }
-                } catch(e) { textSpan.textContent = "!!! Kilitli Veri !!!"; }
+                } catch(e) { textSpan.textContent = "!!! Çözülemedi !!!"; }
             };
 
             container.onmouseout = container.ontouchend = function() {
@@ -193,10 +194,7 @@
             messagesDiv.scrollTop = messagesDiv.scrollHeight;
         });
 
-        document.getElementById('messageInput').addEventListener("keypress", (e) => {
-            if (e.key === "Enter") send();
-        });
+        document.getElementById('messageInput').addEventListener("keypress", (e) => { if (e.key === "Enter") send(); });
     </script>
 </body>
 </html>
-
