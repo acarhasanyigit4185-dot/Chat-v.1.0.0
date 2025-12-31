@@ -7,55 +7,57 @@
     <script src="/socket.io/socket.io.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
     <style>
-        /* TEMEL AYARLAR - Daha Kompakt */
+        /* TEMEL AYARLAR */
         * { box-sizing: border-box; margin: 0; padding: 0; font-size: 14px; }
-        body { font-family: 'Courier New', Courier, monospace; background: #0a0a0a; color: #00ff41; display: flex; justify-content: center; align-items: center; min-height: 100vh; overflow: hidden; }
+        html, body { height: 100%; width: 100%; overflow: hidden; }
+        body { font-family: 'Courier New', Courier, monospace; background: #0a0a0a; color: #00ff41; display: flex; justify-content: center; align-items: center; }
         
-        /* GİRİŞ EKRANI - Küçültüldü */
-        #login-screen { text-align: center; border: 1px solid #00ff41; padding: 25px 15px; border-radius: 8px; background: #000; width: 85%; max-width: 320px; }
-        #login-screen h1 { font-size: 1.2rem; margin-bottom: 10px; }
+        /* GİRİŞ EKRANI */
+        #login-screen { text-align: center; border: 1px solid #00ff41; padding: 25px 15px; border-radius: 8px; background: #000; width: 85%; max-width: 320px; z-index: 500; }
         input { background: #000; border: 1px solid #00ff41; color: #00ff41; padding: 8px; margin: 4px 0; text-align: center; width: 100%; outline: none; }
         button { background: #00ff41; color: #000; border: none; padding: 10px; font-weight: bold; cursor: pointer; margin-top: 8px; width: 100%; }
         
-        /* ANA PANEL */
-        #chat-screen { display: none; width: 100%; height: 100vh; background: #000; position: relative; overflow: hidden; }
+        /* ANA PANEL - Flex yapısı düzeltildi */
+        #chat-screen { display: none; width: 100%; height: 100%; background: #000; position: fixed; inset: 0; flex-direction: column; }
         
-        /* YAN MENÜ - Daraltıldı */
+        /* ÜST BAR - Sabitlendi */
+        #header-bar { 
+            height: 45px; background: #000; border-bottom: 1px solid #333; 
+            display: flex; align-items: center; padding: 0 10px; flex-shrink: 0;
+        }
+        #menu-toggle { 
+            background: #111; color: #00ff41; border: 1px solid #00ff41; 
+            width: 35px; height: 30px; margin-right: 10px; cursor: pointer;
+        }
+
+        /* YAN MENÜ */
         #sidebar { 
             position: absolute; left: -180px; top: 0; width: 180px; height: 100%; 
-            border-right: 1px solid #333; padding: 10px; background: #050505; 
+            border-right: 1px solid #333; padding: 15px; background: #050505; 
             z-index: 100; transition: 0.3s; 
         }
         #sidebar.active { left: 0; }
         #user-list { margin-top: 15px; font-size: 0.75em; }
         .user-item { margin-bottom: 5px; padding: 3px; border-bottom: 1px solid #111; }
 
-        /* ANA CHAT ALANI */
-        #main-chat { flex: 1; display: flex; flex-direction: column; width: 100%; height: 100%; }
-        #messages { flex: 1; overflow-y: auto; padding: 8px; padding-top: 45px; } 
+        /* SOHBET ALANI - Flex-grow ile orta kısmı yayıyoruz */
+        #main-chat { flex: 1; display: flex; flex-direction: column; overflow: hidden; position: relative; }
+        #messages { flex: 1; overflow-y: auto; padding: 10px; width: 100%; }
         
-        /* ÜST BAR - İnceleştirildi */
-        #header-bar { 
-            position: absolute; top: 0; left: 0; right: 0; height: 40px; 
-            background: #000; border-bottom: 1px solid #333; 
-            display: flex; align-items: center; padding: 0 8px; z-index: 50; 
-        }
-        #menu-toggle { 
-            background: #111; color: #00ff41; border: 1px solid #00ff41; 
-            width: 30px; height: 28px; margin-right: 8px; cursor: pointer; font-size: 16px;
-        }
-
-        /* MESAJ TASARIMI - Daha Az Boşluk */
-        .msg-container { margin-bottom: 8px; padding: 6px; border-radius: 3px; background: #111; border-left: 2px solid #00ff41; cursor: help; width: 100%; }
-        .msg-text { font-size: 0.75em; opacity: 0.8; word-break: break-all; line-height: 1.2; }
+        /* MESAJ TASARIMI */
+        .msg-container { margin-bottom: 10px; padding: 8px; border-radius: 3px; background: #111; border-left: 2px solid #00ff41; cursor: help; width: 100%; }
+        .msg-text { font-size: 0.8em; opacity: 0.8; word-break: break-all; }
         .msg-container:hover { background: #001a00; }
 
-        /* ALT GİRİŞ - Kompakt */
-        #input-area { display: flex; gap: 4px; padding: 6px; border-top: 1px solid #333; background: #000; }
-        #messageInput { text-align: left; padding: 8px; }
+        /* ALT GİRİŞ ALANI - Sabitlendi ve Görünür Yapıldı */
+        #input-area { 
+            height: 55px; display: flex; gap: 5px; padding: 8px; 
+            border-top: 1px solid #333; background: #000; flex-shrink: 0;
+        }
+        #messageInput { text-align: left; padding: 8px; margin: 0; }
 
-        /* ONAY PENCERELERİ - Küçültüldü */
-        #approval-modal { display: none; position: fixed; top: 45px; left: 50%; transform: translateX(-50%); background: #000; border: 2px solid #00ff41; padding: 15px; z-index: 300; text-align: center; width: 90%; max-width: 280px; }
+        /* MODALLAR */
+        #approval-modal { display: none; position: fixed; top: 60px; left: 50%; transform: translateX(-50%); background: #000; border: 2px solid #00ff41; padding: 15px; z-index: 300; text-align: center; width: 85%; max-width: 280px; }
         #waiting-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.95); z-index: 400; justify-content: center; align-items: center; text-align: center; }
     </style>
 </head>
@@ -82,8 +84,8 @@
     <div id="approval-modal">
         <p id="request-text" style="font-size: 0.85em;"></p>
         <div style="display: flex; gap: 8px; margin-top: 10px;">
-            <button onclick="ownerResponse(true)" style="background: #00ff41; color: #000; margin: 0; padding: 6px;">KABUL ET</button>
-            <button onclick="ownerResponse(false)" style="background: #ff0000; color: #fff; margin: 0; padding: 6px;">REDDET</button>
+            <button onclick="ownerResponse(true)" style="background: #00ff41; color: #000; margin: 0; padding: 5px;">KABUL ET</button>
+            <button onclick="ownerResponse(false)" style="background: #ff0000; color: #fff; margin: 0; padding: 5px;">REDDET</button>
         </div>
     </div>
 
@@ -91,23 +93,23 @@
     <div id="chat-screen">
         <div id="header-bar">
             <button id="menu-toggle" onclick="toggleSidebar()">☰</button>
-            <div style="font-size: 0.65em; flex: 1; display: flex; justify-content: space-between;">
+            <div style="font-size: 0.7em; flex: 1; display: flex; justify-content: space-between;">
                 <span>ODA MEVCUDU: <b id="roomCount">0</b></span>
                 <span>ODA: <b id="currentRoom"></b></span>
             </div>
         </div>
 
         <div id="sidebar">
-            <h3 style="font-size: 0.65em; color: gray; margin-bottom: 8px;">KULLANICILAR</h3>
+            <h3 style="font-size: 0.7em; color: gray; margin-bottom: 10px;">KULLANICILAR</h3>
             <div id="user-list"></div>
-            <button onclick="toggleSidebar()" style="font-size: 9px; padding: 4px; margin-top: 10px;">KAPAT</button>
+            <button onclick="toggleSidebar()" style="font-size: 9px; padding: 5px; margin-top: 10px; width: 100%;">KAPAT</button>
         </div>
 
         <div id="main-chat">
             <div id="messages"></div>
             <div id="input-area">
                 <input type="text" id="messageInput" placeholder="Mesajını yaz...">
-                <button onclick="send()" style="width: auto; margin: 0; padding: 0 12px;">GÖNDER</button>
+                <button onclick="send()" style="width: auto; margin: 0; padding: 0 15px;">GÖNDER</button>
             </div>
         </div>
     </div>
@@ -135,7 +137,7 @@
             activeRoom = data.room;
             document.getElementById('waiting-overlay').style.display = 'none';
             document.getElementById('login-screen').style.display = 'none';
-            document.getElementById('chat-screen').style.display = 'flex';
+            document.getElementById('chat-screen').style.display = 'flex'; // Flex olarak aç
             document.getElementById('currentRoom').innerText = activeRoom;
         });
 
